@@ -17,7 +17,7 @@
 #
 -->
 
-[Chinese](key-auth-cn.md)
+- [中文](../zh-cn/plugins/key-auth.md)
 
 # Summary
 - [**Name**](#name)
@@ -35,9 +35,10 @@ Add Key Authentication (also sometimes referred to as an API key) to a Service o
 
 ## Attributes
 
-|Name          |Requirement  |Description|
-|---------     |--------|-----------|
-| key         |required|different consumer objects should use different values, it should be unique.|
+
+| Name | Type   | Requirement | Default | Valid | Description                                                                  |
+| ---- | ------ | ----------- | ------- | ----- | ---------------------------------------------------------------------------- |
+| key  | string | required    |         |       | different consumer objects should use different values, it should be unique. |
 
 
 ## How To Enable
@@ -47,7 +48,7 @@ Two steps are required:
 1. creates a consumer object, and set the attributes of plugin `key-auth`.
 
 ```shell
-curl http://127.0.0.1:9080/apisix/admin/consumers -X PUT -d '
+curl http://127.0.0.1:9080/apisix/admin/consumers -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "username": "jack",
     "plugins": {
@@ -67,7 +68,7 @@ Then add key-auth plugin:
 2. creates a route or service object, and enable plugin `key-auth`.
 
 ```shell
-curl http://127.0.0.1:9080/apisix/admin/routes/1 -X PUT -d '
+curl http://127.0.0.1:9080/apisix/admin/routes/1 -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "methods": ["GET"],
     "uri": "/index.html",

@@ -22,19 +22,13 @@ worker_connections(256);
 no_root_location();
 no_shuffle();
 
-sub read_file($) {
-    my $infile = shift;
-    open my $in, $infile
-        or die "cannot open $infile for reading: $!";
-    my $cert = do { local $/; <$in> };
-    close $in;
-    $cert;
-}
-
-our $yaml_config = read_file("conf/config.yaml");
-$yaml_config =~ s/node_listen: 9080/node_listen: 1984/;
-$yaml_config =~ s/enable_heartbeat: true/enable_heartbeat: false/;
-$yaml_config =~ s/http: 'radixtree_uri'/http: 'radixtree_host_uri'/;
+our $yaml_config = <<_EOC_;
+apisix:
+    node_listen: 1984
+    router:
+        http: 'radixtree_host_uri'
+    admin_key: null
+_EOC_
 
 run_tests();
 
@@ -80,8 +74,8 @@ passed
 GET /not_found
 --- yaml_config eval: $::yaml_config
 --- error_code: 404
---- response_body eval
-qr/404 Not Found/
+--- response_body
+{"error_msg":"failed to match any routes"}
 --- no_error_log
 [error]
 
@@ -92,8 +86,8 @@ qr/404 Not Found/
 GET /hello
 --- yaml_config eval: $::yaml_config
 --- error_code: 404
---- response_body eval
-qr/404 Not Found/
+--- response_body
+{"error_msg":"failed to match any routes"}
 --- no_error_log
 [error]
 
@@ -106,8 +100,8 @@ GET /hello
 --- more_headers
 Host: not_found.com
 --- error_code: 404
---- response_body eval
-qr/404 Not Found/
+--- response_body
+{"error_msg":"failed to match any routes"}
 --- no_error_log
 [error]
 
@@ -176,8 +170,8 @@ passed
 GET /hello
 --- yaml_config eval: $::yaml_config
 --- error_code: 404
---- response_body eval
-qr/404 Not Found/
+--- response_body
+{"error_msg":"failed to match any routes"}
 --- no_error_log
 [error]
 
@@ -235,8 +229,8 @@ passed
 GET /hello2
 --- yaml_config eval: $::yaml_config
 --- error_code: 404
---- response_body eval
-qr/404 Not Found/
+--- response_body
+{"error_msg":"failed to match any routes"}
 --- no_error_log
 [error]
 

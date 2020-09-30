@@ -17,9 +17,10 @@
 #
 -->
 
-[Chinese](serverless-cn.md)
+- [中文](../zh-cn/plugins/serverless.md)
 
 # Summary
+
 - [**Name**](#name)
 - [**Attributes**](#attributes)
 - [**How To Enable**](#how-to-enable)
@@ -36,21 +37,22 @@ Both plug-ins receive the same parameters.
 
 ## Attributes
 
-|Name          |Requirement  |Description|
-|---------     |--------|-----------|
-| phase         |optional|The default phase is `access`, if not specified. The valid phases are: `rewrite`, `access`,`Header_filer`, `body_filter`, `log` and `balancer`.|
-| functions         |required|A list of functions that are specified to run is an array type, which can contain either one function or multiple functions, executed sequentially.|
-
+| Name      | Type          | Requirement | Default    | Valid                                                                    | Description                                                                                                                                         |
+| --------- | ------------- | ----------- | ---------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| phase     | string        | optional    | ["access"] | ["rewrite", "access", "header_filter", "body_filter", "log", "balancer"] |                                                                                                                                                     |
+| functions | array[string] | required    |            |                                                                          | A list of functions that are specified to run is an array type, which can contain either one function or multiple functions, executed sequentially. |
 
 Note that only function is accepted here, not other types of Lua code. For example, anonymous functions are legal:<br>
-```
+
+```lua
 return function()
     ngx.log(ngx.ERR, 'one')
 end
 ```
 
 Closure is also legal:
-```
+
+```lua
 local count = 1
 return function()
     count = count + 1
@@ -59,7 +61,8 @@ end
 ```
 
 But code that is not a function type is illegal:
- ```
+
+```lua
 local count = 1
 ngx.say(count)
 ```
@@ -69,16 +72,14 @@ ngx.say(count)
 Here's an example, enable the serverless plugin on the specified route:
 
 ```shell
-curl -i http://127.0.0.1:9080/apisix/admin/routes/1 -X PUT -d '
+curl -i http://127.0.0.1:9080/apisix/admin/routes/1  -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "uri": "/index.html",
     "plugins": {
-        "plugins": {
-            "serverless-pre-function": {
-                "phase": "rewrite",
-                "functions" : ["return function() ngx.log(ngx.ERR, 'serverless pre function'); end"]
-            }
-        },
+        "serverless-pre-function": {
+            "phase": "rewrite",
+            "functions" : ["return function() ngx.log(ngx.ERR, \"serverless pre function\"); end"]
+        }
     },
     "upstream": {
         "type": "roundrobin",
@@ -92,7 +93,8 @@ curl -i http://127.0.0.1:9080/apisix/admin/routes/1 -X PUT -d '
 ## Test Plugin
 
  Use curl to access:
- ```shell
+
+```shell
 curl -i http://127.0.0.1:9080/index.html
 ```
 
@@ -106,7 +108,7 @@ When you want to disable the serverless plugin, it is very simple,
   no need to restart the service, it will take effect immediately:
 
 ```shell
-curl http://127.0.0.1:9080/apisix/admin/routes/1 -X PUT -d '
+curl http://127.0.0.1:9080/apisix/admin/routes/1  -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "methods": ["GET"],
     "uri": "/index.html",

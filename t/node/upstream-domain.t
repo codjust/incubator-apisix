@@ -35,7 +35,7 @@ __DATA__
                  ngx.HTTP_PUT,
                  [[{
                     "nodes": {
-                        "baidu.com:80": 0,
+                        "foo.com:80": 0,
                         "127.0.0.1:1980": 1
                     },
                     "type": "roundrobin",
@@ -90,8 +90,8 @@ passed
 --- request
 GET /not_found
 --- error_code: 404
---- response_body eval
-qr/404 Not Found/
+--- response_body
+{"error_msg":"failed to match any routes"}
 --- no_error_log
 [error]
 
@@ -105,11 +105,68 @@ hello world
 --- no_error_log
 [error]
 --- error_log eval
-qr/dns resolver domain: baidu.com to \d+.\d+.\d+.\d+/
+qr/dns resolver domain: foo.com to \d+.\d+.\d+.\d+/
 
 
 
-=== TEST 5: delete route
+=== TEST 5: set upstream(invalid node host)
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/upstreams/1',
+                ngx.HTTP_PUT,
+                [[{
+                    "nodes": {
+                        "httpbin.orgx:80": 0
+                    },
+                    "type": "roundrobin",
+                    "desc": "new upstream"
+                }]]
+                )
+
+            if code >= 300 then
+                ngx.status = code
+            end
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 6:
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local function test()
+                local code, body = t('/hello', ngx.HTTP_GET)
+
+                ngx.say("status: ", code)
+            end
+            test()
+            test()
+        }
+    }
+--- request
+GET /t
+--- response_body
+status: 500
+status: 500
+--- error_log
+failed to parse domain: httpbin.orgx
+failed to parse domain: httpbin.orgx
+--- timeout: 10
+
+
+
+=== TEST 7: delete route
 --- config
     location /t {
         content_by_lua_block {
@@ -137,7 +194,7 @@ passed
 
 
 
-=== TEST 6: delete upstream
+=== TEST 8: delete upstream
 --- config
     location /t {
         content_by_lua_block {
@@ -162,3 +219,113 @@ GET /t
 passed
 --- no_error_log
 [error]
+
+
+
+=== TEST 9: set upstream(with domain)
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/upstreams/1',
+                ngx.HTTP_PUT,
+                [[{
+                    "nodes": {
+                        "foo.com:80": 0,
+                        "127.0.0.1:1980": 1
+                    },
+                    "type": "roundrobin",
+                    "desc": "new upstream"
+                }]]
+                )
+
+            if code >= 300 then
+                ngx.status = code
+            end
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 10: set empty service
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/services/1',
+                ngx.HTTP_PUT,
+                [[{
+                    "desc": "new service",
+                    "plugins": {
+                        "prometheus": {}
+                    }
+                }]]
+            )
+
+            if code >= 300 then
+                ngx.status = code
+            end
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 11: set route(with upstream)
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/routes/1',
+                ngx.HTTP_PUT,
+                [[{
+                    "uri": "/hello",
+                    "upstream": {
+                        "nodes": {
+                            "foo.com": 0,
+                            "127.0.0.1:1980": 1
+                        },
+                        "type": "roundrobin",
+                        "desc": "new upstream"
+                    },
+                    "service_id": "1"
+                }]]
+                )
+
+            if code >= 300 then
+                ngx.status = code
+            end
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 12: hit routes, parse the domain of upstream node
+--- request
+GET /hello
+--- response_body
+hello world
+--- no_error_log
+[error]
+--- error_log eval
+qr/dns resolver domain: foo.com to \d+.\d+.\d+.\d+/

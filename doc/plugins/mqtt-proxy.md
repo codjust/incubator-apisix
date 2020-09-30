@@ -17,7 +17,7 @@
 #
 -->
 
-[中文](mqtt-proxy-cn.md)
+- [中文](../zh-cn/plugins/mqtt-proxy.md)
 
 # Summary
 - [**Name**](#name)
@@ -36,12 +36,12 @@ And this plugin both support MQTT protocol [3.1.*](http://docs.oasis-open.org/mq
 
 ## Attributes
 
-|name          |option  |description|
-|---------     |--------|-----------|
-|protocol_name |require |Name of protocol, shoulds be `MQTT` in normal.|
-|protocol_level|require |Level of protocol, it should be `4` for MQTT `3.1.*`. it should be `5` for MQTT `5.0`.|
-|upstream.ip   |require |IP address of upstream, will forward current request to.|
-|upstream.port |require |Port of upstream, will forward current request to.|
+| Name           | Type    | Requirement | Default | Valid | Description                                                                            |
+| -------------- | ------- | ----------- | ------- | ----- | -------------------------------------------------------------------------------------- |
+| protocol_name  | string  | required    |         |       | Name of protocol, shoulds be `MQTT` in normal.                                         |
+| protocol_level | integer | required    |         |       | Level of protocol, it should be `4` for MQTT `3.1.*`. it should be `5` for MQTT `5.0`. |
+| upstream.ip    | string  | required    |         |       | IP address of upstream, will forward current request to.                               |
+| upstream.port  | number  | required    |         |       | Port of upstream, will forward current request to.                                     |
 
 
 ## How To Enable
@@ -66,7 +66,7 @@ Then send the MQTT request to port 9100.
 Creates a stream route, and enable plugin `mqtt-proxy`.
 
 ```shell
-curl http://127.0.0.1:9080/apisix/admin/stream_routes/1 -X PUT -d '
+curl http://127.0.0.1:9080/apisix/admin/stream_routes/1 -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "remote_addr": "127.0.0.1",
     "plugins": {

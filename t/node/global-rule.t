@@ -93,8 +93,8 @@ passed
 --- request
 GET /not_found
 --- error_code: 404
---- response_body eval
-qr/404 Not Found/
+--- response_body
+{"error_msg":"failed to match any routes"}
 --- no_error_log
 [error]
 
@@ -104,8 +104,8 @@ qr/404 Not Found/
 --- request
 GET /hello
 --- error_code: 404
---- response_body eval
-qr/404 Not Found/
+--- response_body
+{"error_msg":"failed to match any routes"}
 --- no_error_log
 [error]
 
@@ -131,11 +131,18 @@ GET /hello
                 ngx.status = code
             end
             ngx.say(body)
+
+            local code, body = t('/not_found', ngx.HTTP_GET)
+            ngx.say(code)
+            local code, body = t('/not_found', ngx.HTTP_GET)
+            ngx.say(code)
         }
     }
 --- request
 GET /t
 --- response_body
 passed
+404
+404
 --- no_error_log
 [error]

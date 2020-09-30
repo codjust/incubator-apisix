@@ -1,27 +1,16 @@
-dist: xenial
+dist: bionic
 sudo: required
 
 matrix:
-  fast_finish: true
   allow_failures:
     - os: osx
-
   include:
-    - os: linux
-      services:
-        - redis-server
-      env: OSNAME=linux_openresty
     - os: osx
       env: OSNAME=osx_openresty
-      if: type IN (push)
       cache:
         directories:
           - $HOME/Library/Caches/Homebrew
           - /usr/local/Homebrew
-    - os: linux
-      services:
-        - redis-server
-      env: OSNAME=linux_tengine
 
 language: c
 
@@ -34,11 +23,9 @@ addons:
       - libreadline-dev
       - libssl-dev
       - perl
-      - etcd
-      - luarocks
-      - lua-check
   homebrew:
     update: true
+
 
 cache:
   directories:

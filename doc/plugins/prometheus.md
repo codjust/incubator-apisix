@@ -17,7 +17,8 @@
 #
 -->
 
-[Chinese](prometheus-cn.md)
+- [中文](../zh-cn/plugins/prometheus.md)
+
 # prometheus
 
 This plugin exposes metrics in Prometheus Exposition format.
@@ -34,7 +35,7 @@ any options yet.
 For example:
 
 ```shell
-curl http://127.0.0.1:9080/apisix/admin/routes/1 -X PUT -d '
+curl http://127.0.0.1:9080/apisix/admin/routes/1  -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
 {
     "uri": "/hello",
     "plugins": {
@@ -60,8 +61,11 @@ Then add prometheus plugin:
 ## How to fetch the metric data
 
 We fetch the metric data from the specified url `/apisix/prometheus/metrics`.
+```
+curl -i http://127.0.0.1:9080/apisix/prometheus/metrics
+```
 
-Puts this uri address into prometheus, and it will automatically fetch
+Puts this URL address into prometheus, and it will automatically fetch
 these metric data.
 
 For example like this:
@@ -83,8 +87,17 @@ And we can check the status at prometheus console:
 
 ### Grafana dashboard
 
-Metrics exported by the plugin can be graphed in Grafana using a drop in dashboard: https://grafana.com/dashboards/7424 .
+Metrics exported by the plugin can be graphed in Grafana using a drop in dashboard.
 
+Downloads [Grafana dashboard meta](../json/apisix-grafana-dashboard.json) and imports it to Grafana。
+
+Or you can goto [Grafana official](https://grafana.com/grafana/dashboards/11719) for `Grafana` meta data.
+
+![](../../doc/images/plugin/grafana_1.png)
+
+![](../../doc/images/plugin/grafana_2.png)
+
+![](../../doc/images/plugin/grafana_3.png)
 
 ### Available metrics
 
@@ -125,4 +138,23 @@ apisix_nginx_http_current_connections{state="writing"} 1
 # HELP apisix_nginx_metric_errors_total Number of nginx-lua-prometheus errors
 # TYPE apisix_nginx_metric_errors_total counter
 apisix_nginx_metric_errors_total 0
+```
+
+## Disable Plugin
+
+Remove the corresponding json configuration in the plugin configuration to disable `prometheus`.
+APISIX plugins are hot-reloaded, therefore no need to restart APISIX.
+
+```shell
+curl http://127.0.0.1:9080/apisix/admin/routes/1  -H 'X-API-KEY: edd1c9f034335f136f87ad84b625c8f1' -X PUT -d '
+{
+    "uri": "/hello",
+    "plugins": {},
+    "upstream": {
+        "type": "roundrobin",
+        "nodes": {
+            "127.0.0.1:80": 1
+        }
+    }
+}'
 ```

@@ -353,7 +353,7 @@ GET /t
     location /t {
         content_by_lua_block {
             local t = require("lib.test_admin").test
-            local code, body = t('/apisix/admin/services/invalid_id',
+            local code, body = t('/apisix/admin/services/invalid_id$',
                  ngx.HTTP_PUT,
                  [[{
                     "plugins": {
@@ -461,7 +461,7 @@ passed
 GET /t
 --- error_code: 400
 --- response_body
-{"error_msg":"invalid configuration: property \"id\" validation failed: object matches none of the alternatives"}
+{"error_msg":"invalid configuration: property \"id\" validation failed: object matches none of the requireds"}
 --- no_error_log
 [error]
 
@@ -475,7 +475,7 @@ GET /t
             local code, body = t('/apisix/admin/services',
                  ngx.HTTP_PUT,
                  [[{
-                    "id": "invalid_id",
+                    "id": "invalid_id$",
                     "plugins": {}
                 }]]
                 )
@@ -488,7 +488,7 @@ GET /t
 GET /t
 --- error_code: 400
 --- response_body
-{"error_msg":"invalid configuration: property \"id\" validation failed: object matches none of the alternatives"}
+{"error_msg":"invalid configuration: property \"id\" validation failed: object matches none of the requireds"}
 --- no_error_log
 [error]
 
@@ -530,7 +530,7 @@ GET /t
                  ngx.HTTP_PUT,
                  [[{
                     "id": 1,
-                    "upstream_id": "invalid"
+                    "upstream_id": "invalid$"
                 }]]
                 )
 
@@ -542,7 +542,7 @@ GET /t
 GET /t
 --- error_code: 400
 --- response_body
-{"error_msg":"invalid configuration: property \"upstream_id\" validation failed: object matches none of the alternatives"}
+{"error_msg":"invalid configuration: property \"upstream_id\" validation failed: object matches none of the requireds"}
 --- no_error_log
 [error]
 
@@ -633,7 +633,7 @@ GET /t
     location /t {
         content_by_lua_block {
             local t = require("lib.test_admin").test
-            local code, body = t('/apisix/admin/services/1/',
+            local code, body = t('/apisix/admin/services/1',
                 ngx.HTTP_PATCH,
                 [[{
                     "upstream": {
@@ -657,7 +657,7 @@ GET /t
                         },
                         "key": "/apisix/services/1"
                     },
-                    "action": "set"
+                    "action": "compareAndSwap"
                 }]]
             )
 
@@ -679,9 +679,11 @@ passed
     location /t {
         content_by_lua_block {
             local t = require("lib.test_admin").test
-            local code, body = t('/apisix/admin/services/1/desc',
+            local code, body = t('/apisix/admin/services/1',
                 ngx.HTTP_PATCH,
-                '"new 19 service"',
+                [[{
+                    "desc": "new 19 service"
+                }]],
                 [[{
                     "node": {
                         "value": {
@@ -695,7 +697,7 @@ passed
                         },
                         "key": "/apisix/services/1"
                     },
-                    "action": "set"
+                    "action": "compareAndSwap"
                 }]]
             )
 
@@ -717,20 +719,23 @@ passed
     location /t {
         content_by_lua_block {
             local t = require("lib.test_admin").test
-            local code, body = t('/apisix/admin/services/1/upstream',
+            local code, body = t('/apisix/admin/services/1',
                 ngx.HTTP_PATCH,
                 [[{
-                    "nodes": {
-                        "127.0.0.1:8081": 3,
-                        "127.0.0.1:8082": 4
-                    },
-                    "type": "roundrobin"
+                    "upstream": {
+                        "nodes": {
+                            "127.0.0.1:8081": 3,
+                            "127.0.0.1:8082": 4
+                        },
+                        "type": "roundrobin"
+                    }
                 }]],
                 [[{
                     "node": {
                         "value": {
                             "upstream": {
                                 "nodes": {
+                                    "127.0.0.1:8080": 1,
                                     "127.0.0.1:8081": 3,
                                     "127.0.0.1:8082": 4
                                 },
@@ -740,6 +745,429 @@ passed
                     }
                 }]]
             )
+
+            ngx.status = code
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 22: patch service(whole - sub path)
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/services/1/',
+                ngx.HTTP_PATCH,
+                [[{
+                    "upstream": {
+                        "nodes": {
+                            "127.0.0.1:8080": 1
+                        },
+                        "type": "roundrobin"
+                    },
+                    "desc": "new 22 service"
+                }]],
+                [[{
+                    "node": {
+                        "value": {
+                            "upstream": {
+                                "nodes": {
+                                    "127.0.0.1:8080": 1
+                                },
+                                "type": "roundrobin"
+                            },
+                            "desc": "new 22 service"
+                        },
+                        "key": "/apisix/services/1"
+                    },
+                    "action": "compareAndSwap"
+                }]]
+            )
+
+            ngx.status = code
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 23: patch service(new desc - sub path)
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/services/1/desc',
+                ngx.HTTP_PATCH,
+                '"new 23 service"',
+                [[{
+                    "node": {
+                        "value": {
+                            "upstream": {
+                                "nodes": {
+                                    "127.0.0.1:8080": 1
+                                },
+                                "type": "roundrobin"
+                            },
+                            "desc": "new 23 service"
+                        },
+                        "key": "/apisix/services/1"
+                    },
+                    "action": "compareAndSwap"
+                }]]
+            )
+
+            ngx.status = code
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 24: patch service(new nodes - sub path)
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/services/1/upstream',
+                ngx.HTTP_PATCH,
+                [[{
+                    "nodes": {
+                        "127.0.0.2:8081": 3,
+                        "127.0.0.3:8082": 4
+                    },
+                    "type": "roundrobin"
+                }]],
+                [[{
+                    "node": {
+                        "value": {
+                            "upstream": {
+                                "nodes": {
+                                    "127.0.0.2:8081": 3,
+                                    "127.0.0.3:8082": 4
+                                },
+                                "type": "roundrobin"
+                            }
+                        }
+                    }
+                }]]
+            )
+
+            ngx.status = code
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 25: set service(id: 1) and upstream(type:chash, default hash_on: vars, missing key)
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/services/1',
+                 ngx.HTTP_PUT,
+                 [[{
+                    "upstream": {
+                        "nodes": {
+                            "127.0.0.1:8080": 1
+                        },
+                        "type": "chash"
+                    },
+                    "desc": "new service"
+                }]])
+
+            ngx.status = code
+            ngx.print(body)
+        }
+    }
+--- request
+GET /t
+--- error_code: 400
+--- response_body
+{"error_msg":"missing key"}
+--- no_error_log
+[error]
+
+
+
+=== TEST 26: set service(id: 1) and upstream(type:chash, hash_on: header, missing key)
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/services/1',
+                 ngx.HTTP_PUT,
+                 [[{
+                    "upstream": {
+                        "nodes": {
+                            "127.0.0.1:8080": 1
+                        },
+                        "type": "chash",
+                        "hash_on": "header"
+                    },
+                    "desc": "new service"
+                }]])
+
+            ngx.status = code
+            ngx.print(body)
+        }
+    }
+--- request
+GET /t
+--- error_code: 400
+--- response_body
+{"error_msg":"missing key"}
+--- no_error_log
+[error]
+
+
+
+=== TEST 27: set service(id: 1) and upstream(type:chash, hash_on: cookie, missing key)
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/services/1',
+                 ngx.HTTP_PUT,
+                 [[{
+                    "upstream": {
+                        "nodes": {
+                            "127.0.0.1:8080": 1
+                        },
+                        "type": "chash",
+                        "hash_on": "cookie"
+                    },
+                    "desc": "new service"
+                }]])
+
+            ngx.status = code
+            ngx.print(body)
+        }
+    }
+--- request
+GET /t
+--- error_code: 400
+--- response_body
+{"error_msg":"missing key"}
+--- no_error_log
+[error]
+
+
+
+=== TEST 28: set service(id: 1) and upstream(type:chash, hash_on: consumer, missing key is ok)
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/services/1',
+                 ngx.HTTP_PUT,
+                 [[{
+                    "upstream": {
+                        "nodes": {
+                            "127.0.0.1:8080": 1
+                        },
+                        "type": "chash",
+                        "hash_on": "consumer"
+                    },
+                    "desc": "new service"
+                }]])
+
+            ngx.status = code
+            ngx.say(code .. " " .. body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+200 passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 29: set service(id: 1 + test service name)
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/services/1',
+                 ngx.HTTP_PUT,
+                 [[{
+                    "upstream": {
+                        "nodes": {
+                            "127.0.0.1:8080": 1
+                        },
+                        "type": "roundrobin"
+                    },
+                    "name": "test service name"
+                }]],
+                [[{
+                    "node": {
+                        "value": {
+                            "upstream": {
+                                "nodes": {
+                                    "127.0.0.1:8080": 1
+                                },
+                                "type": "roundrobin"
+                            },
+                            "name": "test service name"
+                        },
+                        "key": "/apisix/services/1"
+                    },
+                    "action": "set"
+                }]]
+                )
+
+            ngx.status = code
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 30: invalid string id
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/services/*invalid',
+                ngx.HTTP_PUT,
+                [[{
+                    "upstream": {
+                        "nodes": {
+                            "127.0.0.1:8080": 1
+                        },
+                        "type": "roundrobin"
+                    }
+                }]]
+            )
+
+            if code >= 300 then
+                ngx.status = code
+            end
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- error_code: 400
+--- no_error_log
+[error]
+
+
+
+=== TEST 31: set empty service. (id: 1)（allow empty `service` object）
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/services/1',
+                ngx.HTTP_PUT,
+                {},
+                [[{
+                    "node": {
+                        "value": {"id":"1"}
+                    },
+                    "action": "set"
+                }]]
+                )
+
+            ngx.status = code
+            ngx.say(body)
+        }
+    }
+--- request
+GET /t
+--- response_body
+passed
+--- no_error_log
+[error]
+
+
+
+=== TEST 32: patch content to the empty service.
+--- config
+    location /t {
+        content_by_lua_block {
+            local t = require("lib.test_admin").test
+            local code, body = t('/apisix/admin/services/1',
+                ngx.HTTP_PATCH,
+                [[{
+                    "desc": "empty service",
+                    "plugins": {
+                        "limit-count": {
+                            "count": 2,
+                            "time_window": 60,
+                            "rejected_code": 503,
+                            "key": "remote_addr"
+                        }
+                    },
+                    "upstream": {
+                        "type": "roundrobin",
+                        "nodes": {
+                            "127.0.0.1:80": 1
+                        }
+                    }
+                }]],
+                [[{ 
+                    "node":{
+                        "value":{
+                            "desc":"empty service",
+                            "plugins":{
+                                "limit-count":{
+                                    "time_window":60,
+                                    "count":2,
+                                    "rejected_code":503,
+                                    "key":"remote_addr",
+                                    "policy":"local"
+                                }
+                            },
+                            "upstream":{
+                                "type":"roundrobin",
+                                "nodes":{
+                                    "127.0.0.1:80":1
+                                },
+                                "hash_on":"vars",
+                                "pass_host":"pass"
+                            },
+                            "id":"1"
+                        }
+                    },
+                    "action":"compareAndSwap"
+                }]]
+                )
 
             ngx.status = code
             ngx.say(body)
