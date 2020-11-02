@@ -16,7 +16,6 @@
 --
 local ngx        = ngx
 local type       = type
-local select     = select
 local abs        = math.abs
 local ngx_time   = ngx.time
 local ngx_re     = require("ngx.re")
@@ -39,39 +38,42 @@ local plugin_name   = "hmac-auth"
 
 local schema = {
     type = "object",
-    oneOf = {
-        {
-            title = "work with route or service object",
-            properties = {},
-            additionalProperties = false,
+    title = "work with route or service object",
+    properties = {},
+    additionalProperties = false,
+}
+
+local consumer_schema = {
+    type = "object",
+    title = "work with consumer object",
+    properties = {
+        access_key = {type = "string", minLength = 1, maxLength = 256},
+        secret_key = {type = "string", minLength = 1, maxLength = 256},
+        algorithm = {
+            type = "string",
+            enum = {"hmac-sha1", "hmac-sha256", "hmac-sha512"},
+            default = "hmac-sha256"
         },
-        {
-            title = "work with consumer object",
-            properties = {
-                access_key = {type = "string", minLength = 1, maxLength = 256},
-                secret_key = {type = "string", minLength = 1, maxLength = 256},
-                algorithm = {
-                    type = "string",
-                    enum = {"hmac-sha1", "hmac-sha256", "hmac-sha512"},
-                    default = "hmac-sha256"
-                },
-                clock_skew = {
-                    type = "integer",
-                    default = 0
-                },
-                signed_headers = {
-                    type = "array",
-                    items = {
-                        type = "string",
-                        minLength = 1,
-                        maxLength = 50,
-                    }
-                },
-            },
-            required = {"access_key", "secret_key"},
-            additionalProperties = false,
+        clock_skew = {
+            type = "integer",
+            default = 0
         },
-    }
+        signed_headers = {
+            type = "array",
+            items = {
+                type = "string",
+                minLength = 1,
+                maxLength = 50,
+            }
+        },
+        keep_headers = {
+            type = "boolean",
+            title = "whether to keep the http request header",
+            default = false,
+        }
+    },
+    required = {"access_key", "secret_key"},
+    additionalProperties = false,
 }
 
 local _M = {
@@ -80,6 +82,7 @@ local _M = {
     type = 'auth',
     name = plugin_name,
     schema = schema,
+    consumer_schema = consumer_schema
 }
 
 local hmac_funcs = {
@@ -95,21 +98,6 @@ local hmac_funcs = {
 }
 
 
-local function try_attr(t, ...)
-    local tbl = t
-    local count = select('#', ...)
-    for i = 1, count do
-        local attr = select(i, ...)
-        tbl = tbl[attr]
-        if type(tbl) ~= "table" then
-            return false
-        end
-    end
-
-    return true
-end
-
-
 local function array_to_map(arr)
     local map = core.table.new(0, #arr)
     for _, v in ipairs(arr) do
@@ -117,6 +105,17 @@ local function array_to_map(arr)
     end
 
     return map
+end
+
+
+local function remove_headers(...)
+    local headers = { ... }
+    if headers and #headers > 0 then
+        for _, header in ipairs(headers) do
+            core.log.info("remove_header: ", header)
+            core.request.set_header(header, nil)
+        end
+    end
 end
 
 
@@ -138,10 +137,14 @@ do
 end -- do
 
 
-function _M.check_schema(conf)
+function _M.check_schema(conf, schema_type)
     core.log.info("input conf: ", core.json.delay_encode(conf))
 
-    return core.schema.check(schema, conf)
+    if schema_type == core.schema.TYPE_CONSUMER then
+        return core.schema.check(consumer_schema, conf)
+    else
+        return core.schema.check(schema, conf)
+    end
 end
 
 
@@ -201,27 +204,31 @@ local function generate_signature(ctx, secret_key, params)
         canonical_query_string = core.table.concat(query_tab, "&")
     end
 
-    local canonical_headers = {}
-
     core.log.info("all headers: ",
                   core.json.delay_encode(core.request.headers(ctx), true))
+
+    local signing_string_items = {
+        request_method,
+        canonical_uri,
+        canonical_query_string,
+        params.access_key,
+        params.date,
+    }
 
     if params.signed_headers then
         for _, h in ipairs(params.signed_headers) do
             local canonical_header = core.request.header(ctx, h) or ""
-            core.table.insert(canonical_headers, canonical_header)
+            core.table.insert(signing_string_items,
+                              h .. ":" .. canonical_header)
             core.log.info("canonical_header name:", core.json.delay_encode(h))
             core.log.info("canonical_header value: ",
                           core.json.delay_encode(canonical_header))
         end
     end
 
-    local signing_string = request_method .. canonical_uri
-                            .. canonical_query_string
-                            .. params.access_key .. params.date
-                            .. core.table.concat(canonical_headers, "")
+    local signing_string = core.table.concat(signing_string_items, "\n") .. "\n"
 
-    core.log.info("signing_string:", signing_string,
+    core.log.info("signing_string: ", signing_string,
                   " params.signed_headers:",
                   core.json.delay_encode(params.signed_headers))
 
@@ -285,6 +292,17 @@ local function validate(ctx, params)
     return consumer
 end
 
+
+local function get_keep_headers(access_key)
+    local consumer, err = get_consumer(access_key)
+    if err then
+        return false, err
+    end
+
+    return consumer.auth_conf.keep_headers
+end
+
+
 local function get_params(ctx)
     local params = {}
     local local_conf = core.config.local_conf()
@@ -294,8 +312,9 @@ local function get_params(ctx)
     local date_key = DATE_KEY
     local signed_headers_key = SIGNED_HEADERS_KEY
 
-    if try_attr(local_conf, "plugin_attr", "hmac-auth") then
-        local attr = local_conf.plugin_attr["hmac-auth"]
+    local attr = core.table.try_read_attr(local_conf, "plugin_attr",
+                                          "hmac-auth")
+    if attr then
         access_key = attr.access_key or access_key
         signature_key = attr.signature_key or signature_key
         algorithm_key = attr.algorithm_key or algorithm_key
@@ -336,6 +355,13 @@ local function get_params(ctx)
     params.signature  = signature
     params.date  = date or ""
     params.signed_headers = signed_headers and ngx_re.split(signed_headers, ";")
+
+    local keep_headers = get_keep_headers(params.access_key)
+    core.log.info("keep_headers: ", keep_headers)
+
+    if not keep_headers then
+        remove_headers(signature_key, algorithm_key, signed_headers_key)
+    end
 
     core.log.info("params: ", core.json.delay_encode(params))
 

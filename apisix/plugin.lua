@@ -25,6 +25,7 @@ local type          = type
 local local_plugins = core.table.new(32, 0)
 local ngx           = ngx
 local tostring      = tostring
+local error         = error
 local local_plugins_hash    = core.table.new(0, 32)
 local stream_local_plugins  = core.table.new(32, 0)
 local stream_local_plugins_hash = core.table.new(0, 32)
@@ -197,45 +198,6 @@ function _M.load()
 end
 
 
-local fetch_api_routes
-do
-    local routes = {}
-function fetch_api_routes()
-    core.table.clear(routes)
-
-    for _, plugin in ipairs(_M.plugins) do
-        local api_fun = plugin.api
-        if api_fun then
-            local api_routes = api_fun()
-            core.log.debug("fetched api routes: ",
-                           core.json.delay_encode(api_routes, true))
-            for _, route in ipairs(api_routes) do
-                core.table.insert(routes, {
-                        methods = route.methods,
-                        uri = route.uri,
-                        handler = function (...)
-                            local code, body = route.handler(...)
-                            if code or body then
-                                core.response.exit(code, body)
-                            end
-                        end
-                    })
-            end
-        end
-    end
-
-    return routes
-end
-
-end -- do
-
-
-function _M.api_routes()
-    return core.lrucache.global("plugin_routes", _M.load_times,
-                                fetch_api_routes)
-end
-
-
 function _M.filter(user_route, plugins)
     local user_plugin_conf = user_route.value.plugins
     if user_plugin_conf == nil or
@@ -391,6 +353,21 @@ end
 
 function _M.init_worker()
     _M.load()
+
+    local plugin_metadatas, err = core.config.new("/plugin_metadata",
+        {automatic = true}
+    )
+    if not plugin_metadatas then
+        error("failed to create etcd instance for fetching /plugin_metadatas : "
+              .. err)
+    end
+
+    _M.plugin_metadatas = plugin_metadatas
+end
+
+
+function _M.plugin_metadata(name)
+    return _M.plugin_metadatas:get(name)
 end
 
 
